@@ -8,15 +8,20 @@ using UkApprenticeships.Functions.Services;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
+    .ConfigureAppConfiguration((context, config) =>
+    {
+        // Ensure configuration is loaded from environment and settings
+        config.AddEnvironmentVariables();
+    })
     .ConfigureServices((context, services) =>
     {
-        var config = context.Configuration;
+        var configuration = context.Configuration;
 
         // Register configuration options
         services.Configure<ApprenticeshipApiOptions>(
-            config.GetSection(ApprenticeshipApiOptions.SectionName));
+            configuration.GetSection(ApprenticeshipApiOptions.SectionName));
         services.Configure<CosmosDbOptions>(
-            config.GetSection(CosmosDbOptions.SectionName));
+            configuration.GetSection(CosmosDbOptions.SectionName));
 
         // Register typed HttpClient for VacancyApiClient
         services.AddHttpClient<IVacancyApiClient, VacancyApiClient>((serviceProvider, client) =>
