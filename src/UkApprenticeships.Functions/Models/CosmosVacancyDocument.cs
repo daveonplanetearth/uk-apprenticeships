@@ -21,7 +21,7 @@ public class CosmosVacancyDocument
         return new CosmosVacancyDocument
         {
             Id = vacancy.VacancyReference ?? throw new ArgumentException("VacancyReference cannot be null"),
-            PartitionKey = vacancy.VacancyReference,
+            PartitionKey = DateTime.UtcNow.ToString("yyyyMMdd"),
             Vacancy = vacancy,
             SyncedAtUtc = DateTime.UtcNow
         };

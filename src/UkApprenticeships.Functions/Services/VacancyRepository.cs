@@ -23,4 +23,26 @@ public class VacancyRepository : IVacancyRepository
             new PartitionKey(document.PartitionKey),
             new ItemRequestOptions { EnableContentResponseOnWrite = false });
     }
+
+    public async Task<IReadOnlyList<CosmosVacancyDocument>> GetVacanciesByDateAsync(string partitionKey)
+    {
+        var query = new QueryDefinition("SELECT * FROM c WHERE c.partitionKey = @partitionKey")
+            .WithParameter("@partitionKey", partitionKey);
+
+        var requestOptions = new QueryRequestOptions
+        {
+            PartitionKey = new PartitionKey(partitionKey)
+        };
+
+        var iterator = _container.GetItemQueryIterator<CosmosVacancyDocument>(query, requestOptions: requestOptions);
+        var results = new List<CosmosVacancyDocument>();
+
+        while (iterator.HasMoreResults)
+        {
+            var response = await iterator.ReadNextAsync();
+            results.AddRange(response);
+        }
+
+        return results.AsReadOnly();
+    }
 }
