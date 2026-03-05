@@ -4,15 +4,18 @@ namespace UkApprenticeships.Functions.Models;
 
 public class VacancyWage
 {
-    [JsonPropertyName("minimumAnnualWage")]
-    public decimal? MinimumAnnualWage { get; set; }
-
-    [JsonPropertyName("maximumAnnualWage")]
-    public decimal? MaximumAnnualWage { get; set; }
-
     [JsonPropertyName("wageType")]
     public string? WageType { get; set; }
 
-    [JsonPropertyName("currencyCode")]
-    public string? CurrencyCode { get; set; }
+    [JsonPropertyName("wageAmount")]
+    public decimal? WageAmount { get; set; }
+
+    [JsonPropertyName("wageUnit")]
+    public string? WageUnit { get; set; }
+
+    [JsonPropertyName("wageAdditionalInformation")]
+    public string? WageAdditionalInformation { get; set; }
+
+    [JsonPropertyName("workingWeekDescription")]
+    public string? WorkingWeekDescription { get; set; }
 }

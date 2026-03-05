@@ -16,15 +16,12 @@ public class VacancyAddress
     [JsonPropertyName("addressLine4")]
     public string? AddressLine4 { get; set; }
 
-    [JsonPropertyName("town")]
-    public string? Town { get; set; }
-
     [JsonPropertyName("postcode")]
     public string? Postcode { get; set; }
 
-    [JsonPropertyName("county")]
-    public string? County { get; set; }
+    [JsonPropertyName("latitude")]
+    public double? Latitude { get; set; }
 
-    [JsonPropertyName("country")]
-    public string? Country { get; set; }
+    [JsonPropertyName("longitude")]
+    public double? Longitude { get; set; }
 }

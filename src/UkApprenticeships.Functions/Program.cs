@@ -5,12 +5,14 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using UkApprenticeships.Functions.Configuration;
 using UkApprenticeships.Functions.Services;
+using System.Text.Json;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
     .ConfigureAppConfiguration((context, config) =>
     {
-        // Ensure configuration is loaded from environment and settings
+        config.AddJsonFile("local.settings.json", optional: true, reloadOnChange: false);
+        config.AddUserSecrets<Program>();
         config.AddEnvironmentVariables();
     })
     .ConfigureServices((context, services) =>
@@ -34,13 +36,19 @@ var host = new HostBuilder()
             client.DefaultRequestHeaders.Add("X-Version", options.ApiVersion);
         });
 
-        // Register CosmosClient as singleton (v3 SDK uses camelCase by default)
+        // Register CosmosClient as singleton with System.Text.Json serializer
         services.AddSingleton(sp =>
         {
             var cosmosOptions = sp.GetRequiredService<IOptions<CosmosDbOptions>>();
             var options = cosmosOptions.Value;
 
-            return new CosmosClient(options.ConnectionString);
+            return new CosmosClient(options.ConnectionString, new CosmosClientOptions
+            {
+                SerializerOptions = new CosmosSerializationOptions
+                {
+                    PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase
+                }
+            });
         });
 
         // Register repository
