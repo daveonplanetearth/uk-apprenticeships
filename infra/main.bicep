@@ -2,6 +2,10 @@ param location string = resourceGroup().location
 param appName string = 'uk-apprenticeships'
 @secure()
 param apprenticeshipApiKey string
+@secure()
+param whatsAppAccessToken string
+param whatsAppPhoneNumberId string = '1068222259699217'
+param whatsAppTemplateName string = 'new_vacancy'
 
 var uniqueSuffix = uniqueString(resourceGroup().id)
 var storageAccountName = 'st${replace(appName, '-', '')}${uniqueSuffix}'
@@ -194,6 +198,30 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'CosmosDb__ContainerName'
           value: 'Vacancies'
+        }
+        {
+          name: 'ProcessVacanciesFunctionInterval'
+          value: '0 0 * * * *'
+        }
+        {
+          name: 'VacancySyncFunctionInterval'
+          value: '0 0 * * * *'
+        }
+        {
+          name: 'WhatsApp__ApiVersion'
+          value: 'v22.0'
+        }
+        {
+          name: 'WhatsApp__PhoneNumberId'
+          value: whatsAppPhoneNumberId
+        }
+        {
+          name: 'WhatsApp__AccessToken'
+          value: whatsAppAccessToken
+        }
+        {
+          name: 'WhatsApp__TemplateName'
+          value: whatsAppTemplateName
         }
       ]
       ftpsState: 'Disabled'

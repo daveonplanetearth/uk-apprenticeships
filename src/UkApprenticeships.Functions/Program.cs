@@ -24,6 +24,8 @@ var host = new HostBuilder()
             configuration.GetSection(ApprenticeshipApiOptions.SectionName));
         services.Configure<CosmosDbOptions>(
             configuration.GetSection(CosmosDbOptions.SectionName));
+        services.Configure<WhatsAppOptions>(
+            configuration.GetSection(WhatsAppOptions.SectionName));
 
         // Register typed HttpClient for VacancyApiClient
         services.AddHttpClient<IVacancyApiClient, VacancyApiClient>((serviceProvider, client) =>
@@ -34,6 +36,17 @@ var host = new HostBuilder()
             client.BaseAddress = new Uri(options.BaseUrl);
             client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", options.SubscriptionKey);
             client.DefaultRequestHeaders.Add("X-Version", options.ApiVersion);
+        });
+
+        // Register typed HttpClient for WhatsAppService
+        services.AddHttpClient<IWhatsAppService, WhatsAppService>((serviceProvider, client) =>
+        {
+            var whatsAppOptions = serviceProvider.GetRequiredService<IOptions<WhatsAppOptions>>();
+            var options = whatsAppOptions.Value;
+
+            client.BaseAddress = new Uri("https://graph.facebook.com/");
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.AccessToken);
         });
 
         // Register CosmosClient as singleton with System.Text.Json serializer
@@ -51,8 +64,9 @@ var host = new HostBuilder()
             });
         });
 
-        // Register repository
+        // Register repositories
         services.AddSingleton<IVacancyRepository, VacancyRepository>();
+        services.AddSingleton<IUserRepository, UserRepository>();
     })
     .Build();
 

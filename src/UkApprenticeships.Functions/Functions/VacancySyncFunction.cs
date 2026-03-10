@@ -29,7 +29,11 @@ public class VacancySyncFunction
 
     [Function("VacancySyncFunction")]
     public async Task Run(
-        [TimerTrigger("* * * * * *", UseMonitor = false)] TimerInfo myTimer)
+#if DEBUG
+        [TimerTrigger("%VacancySyncFunctionInterval%", UseMonitor = false, RunOnStartup = true)] TimerInfo myTimer)
+#else
+        [TimerTrigger("%VacancySyncFunctionInterval%", UseMonitor = false, RunOnStartup = false)] TimerInfo myTimer)
+#endif
     {
         _logger.LogInformation($"VacancySyncFunction started at {DateTime.UtcNow}");
 
