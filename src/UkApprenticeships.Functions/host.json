@@ -3,7 +3,14 @@
   "logging": {
     "logLevel": {
       "default": "Information",
-      "Host.Results": "Error"
+      "Host.Results": "Error",
+      "Microsoft": "Warning"
+    },
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": true,
+        "maxTelemetryItemsPerSecond": 20
+      }
     }
   }
 }

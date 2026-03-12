@@ -8,7 +8,7 @@ param whatsAppPhoneNumberId string = '1068222259699217'
 param whatsAppTemplateName string = 'new_vacancy'
 
 var uniqueSuffix = uniqueString(resourceGroup().id)
-var storageAccountName = 'st${replace(appName, '-', '')}${uniqueSuffix}'
+var storageAccountName = 'st${take(replace(appName, '-', ''), 11)}${take(uniqueSuffix, 11)}'
 var functionAppName = '${appName}-func-${uniqueSuffix}'
 var cosmosAccountName = '${appName}-cosmos-${uniqueSuffix}'
 var appInsightsName = '${appName}-appinsights-${uniqueSuffix}'
@@ -57,8 +57,7 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2023-11-15' = {
   location: location
   kind: 'GlobalDocumentDB'
   properties: {
-    databaseAccountOfferType: 'Serverless'
-    enableServerless: true
+    databaseAccountOfferType: 'Standard'
     locations: [
       {
         locationName: location
@@ -84,7 +83,7 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2023
 }
 
 // Cosmos DB Container
-resource cosmosContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-11-15' = {
+resource cosmosContainer_Vacancies 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-11-15' = {
   parent: cosmosDatabase
   name: 'Vacancies'
   properties: {
@@ -101,7 +100,24 @@ resource cosmosContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/con
   }
 }
 
-// App Service Plan (Consumption)
+resource cosmosContainer_Users 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-11-15' = {
+  parent: cosmosDatabase
+  name: 'Users'
+  properties: {
+    resource: {
+      id: 'Users'
+      partitionKey: {
+        paths: [
+          '/partitionKey'
+        ]
+        kind: 'Hash'
+      }
+      defaultTtl: -1
+    }
+  }
+}
+
+// App Service Plan (Functions Consumption)
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
   name: appServicePlanName
   location: location
@@ -129,11 +145,11 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
       appSettings: [
         {
           name: 'AzureWebJobsStorage'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};SharedAccessSignature=${listAccountSas(storageAccount.id, '2023-01-01').accountSasToken}'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
         }
         {
           name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};SharedAccessSignature=${listAccountSas(storageAccount.id, '2023-01-01').accountSasToken}'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
         }
         {
           name: 'WEBSITE_CONTENTSHARE'
@@ -165,7 +181,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
         }
         {
           name: 'TimerSchedule'
-          value: '0 0 * * *'
+          value: '0 0 0 * * *'
         }
         {
           name: 'ApprenticeshipApi__BaseUrl'
@@ -189,7 +205,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
         }
         {
           name: 'CosmosDb__ConnectionString'
-          value: 'AccountEndpoint=${cosmosAccount.properties.documentEndpoint};AccountKey=${listKeys(cosmosAccount.id, cosmosAccount.apiVersion).primaryMasterKey};'
+          value: 'AccountEndpoint=${cosmosAccount.properties.documentEndpoint};AccountKey=${cosmosAccount.listKeys().primaryMasterKey};'
         }
         {
           name: 'CosmosDb__DatabaseName'
@@ -231,7 +247,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
     httpsOnly: true
   }
   dependsOn: [
-    cosmosContainer
+    cosmosContainer_Users, cosmosContainer_Vacancies
   ]
 }
 

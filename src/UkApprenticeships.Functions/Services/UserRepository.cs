@@ -12,7 +12,7 @@ public class UserRepository : IUserRepository
     public UserRepository(CosmosClient cosmosClient, IOptions<CosmosDbOptions> options)
     {
         var db = cosmosClient.GetDatabase(options.Value.DatabaseName);
-        _container = db.GetContainer("users");
+        _container = db.GetContainer("Users");
     }
 
     public async Task<IReadOnlyList<UserDocument>> GetAllUsersAsync()

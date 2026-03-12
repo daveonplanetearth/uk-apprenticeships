@@ -1,14 +1,19 @@
 using Microsoft.Azure.Cosmos;
+using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using UkApprenticeships.Functions.Configuration;
 using UkApprenticeships.Functions.Services;
-using System.Text.Json;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
+    .ConfigureLogging(logging =>
+    {
+        logging.AddFilter("Microsoft.Extensions.Logging.ApplicationInsights", LogLevel.Information);
+    })
     .ConfigureAppConfiguration((context, config) =>
     {
         config.AddJsonFile("local.settings.json", optional: true, reloadOnChange: false);
@@ -62,6 +67,23 @@ var host = new HostBuilder()
                     PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase
                 }
             });
+        });
+
+        // Register Application Insights with exception details
+        services.AddApplicationInsightsTelemetryWorkerService();
+        services.ConfigureFunctionsApplicationInsights();
+        services.Configure<LoggerFilterOptions>(options =>
+        {
+            // By default, the Functions SDK adds a filter that only sends Warning+ to App Insights.
+            // Remove it so our ConfigureLogging filter takes precedence and exception details are preserved.
+            // The SDK adds a default filter that sets Warning as the minimum level for App Insights,
+            // which suppresses exception details from Information-level logs. Remove it.
+            var defaultRule = options.Rules.FirstOrDefault(rule =>
+                rule.ProviderName == "Microsoft.Extensions.Logging.ApplicationInsights.ApplicationInsightsLoggerProvider");
+            if (defaultRule is not null)
+            {
+                options.Rules.Remove(defaultRule);
+            }
         });
 
         // Register repositories
