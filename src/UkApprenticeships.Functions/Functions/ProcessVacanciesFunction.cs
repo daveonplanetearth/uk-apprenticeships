@@ -11,17 +11,20 @@ public class ProcessVacanciesFunction
     private readonly IVacancyRepository _repository;
     private readonly IUserRepository _userRepository;
     private readonly IWhatsAppService _whatsAppService;
+    private readonly IXApiService _xApiService;
     private readonly ILogger<ProcessVacanciesFunction> _logger;
 
     public ProcessVacanciesFunction(
         IVacancyRepository repository,
         IUserRepository userRepository,
         IWhatsAppService whatsAppService,
+        IXApiService xApiService,
         ILogger<ProcessVacanciesFunction> logger)
     {
         _repository = repository;
         _userRepository = userRepository;
         _whatsAppService = whatsAppService;
+        _xApiService = xApiService;
         _logger = logger;
     }
 
@@ -42,76 +45,110 @@ public class ProcessVacanciesFunction
 
             _logger.LogInformation($"Retrieved {vacancies.Count} vacancies for partition key {partitionKey}");
 
-            var users = await _userRepository.GetAllUsersAsync();
-            _logger.LogInformation($"Retrieved {users.Count} users");
-
-            foreach (var user in users)
+            foreach (var doc in vacancies)
             {
-                _logger.LogInformation($"Processing vacancies for user {user.Id} with mobile {user.Mobile}");
+                var v = doc.Vacancy;
+                var postcode = v.Addresses?.FirstOrDefault()?.Postcode;
+                var closing = v.ClosingDate.HasValue ? v.ClosingDate.Value.ToString("dd MMM yyyy") : null;
 
-                var filtered = new List<(CosmosVacancyDocument Document, double MinDistanceKm)>();
+                var parts = new List<string>();
+                if (!string.IsNullOrWhiteSpace(v.Title) && !string.IsNullOrWhiteSpace(v.EmployerName))
+                    parts.Add($"{v.Title} @ {v.EmployerName}");
+                else if (!string.IsNullOrWhiteSpace(v.Title))
+                    parts.Add(v.Title!);
 
-                foreach (var vacancy in vacancies)
+                var details = string.Join("  ", new[] {
+                    postcode != null ? $"📍 {postcode}" : null,
+                    closing != null ? $"⏰ Closes {closing}" : null
+                }.Where(s => s != null));
+                if (!string.IsNullOrEmpty(details))
+                    parts.Add(details);
+
+                if (!string.IsNullOrWhiteSpace(v.VacancyUrl))
+                    parts.Add(v.VacancyUrl!);
+
+                var tweetText = string.Join("\n", parts);
+
+                try
                 {
-                    if (vacancy.Vacancy.Addresses == null || vacancy.Vacancy.Addresses.Count == 0)
-                        continue;
-
-                    foreach (var address in vacancy.Vacancy.Addresses)
-                    {
-                        if (address.Latitude == null || address.Longitude == null)
-                            continue;
-
-                        var distance = CalculateDistanceKm(
-                            address.Latitude.Value,
-                            address.Longitude.Value,
-                            user.Latitude,
-                            user.Longitude);
-
-                        if (distance <= user.Radius)
-                        {
-                            filtered.Add((vacancy, distance));
-                        }
-                    }
+                    await _xApiService.PostTweetAsync(tweetText);
                 }
-
-                var sorted = filtered.OrderBy(f => f.MinDistanceKm).ToList();
-
-                _logger.LogInformation($"Found {sorted.Count} vacancies within {user.Radius}km of user {user.Id}'s location");
-
-                foreach (var item in sorted)
+                catch (Exception ex)
                 {
-                    var logEntry = new
-                    {
-                        VacancyReference = item.Document.Vacancy.VacancyReference,
-                        Title = item.Document.Vacancy.Title,
-                        EmployerName = item.Document.Vacancy.EmployerName,
-                        ClosingDate = item.Document.Vacancy.ClosingDate,
-                        DistanceKm = Math.Round(item.MinDistanceKm, 2),
-                        PostedDate = item.Document.Vacancy.PostedDate,
-                        NumberOfPositions = item.Document.Vacancy.NumberOfPositions,
-                        ApprenticeshipLevel = item.Document.Vacancy.ApprenticeshipLevel,
-                        CourseTitle = item.Document.Vacancy.Course?.Title,
-                        VacancyUrl = item.Document.Vacancy.VacancyUrl,
-                        AddressLine1 = item.Document.Vacancy.Addresses?.FirstOrDefault()?.AddressLine1,
-                        AddressLine2 = item.Document.Vacancy.Addresses?.FirstOrDefault()?.AddressLine2,
-                        AddressLine3 = item.Document.Vacancy.Addresses?.FirstOrDefault()?.AddressLine3,
-                        AddressLine4 = item.Document.Vacancy.Addresses?.FirstOrDefault()?.AddressLine4,
-                        Postcode = item.Document.Vacancy.Addresses?.FirstOrDefault()?.Postcode
-                    };
-
-                    _logger.LogInformation(
-                        $"Vacancy: {System.Text.Json.JsonSerializer.Serialize(logEntry)}");
-
-                    try
-                    {
-                        await _whatsAppService.SendVacancyAsync(item.Document.Vacancy, Math.Round(item.MinDistanceKm, 2), user.Mobile);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, $"Failed to send WhatsApp message for vacancy {item.Document.Vacancy.VacancyReference} to user {user.Id}");
-                    }
+                    _logger.LogError(ex, $"Failed to post tweet for vacancy {v.VacancyReference}");
                 }
             }
+
+            //var users = await _userRepository.GetAllUsersAsync();
+            //_logger.LogInformation($"Retrieved {users.Count} users");
+
+            //foreach (var user in users)
+            //{
+            //    _logger.LogInformation($"Processing vacancies for user {user.Id} with mobile {user.Mobile}");
+
+            //    var filtered = new List<(CosmosVacancyDocument Document, double MinDistanceKm)>();
+
+            //    foreach (var vacancy in vacancies)
+            //    {
+            //        if (vacancy.Vacancy.Addresses == null || vacancy.Vacancy.Addresses.Count == 0)
+            //            continue;
+
+            //        foreach (var address in vacancy.Vacancy.Addresses)
+            //        {
+            //            if (address.Latitude == null || address.Longitude == null)
+            //                continue;
+
+            //            var distance = CalculateDistanceKm(
+            //                address.Latitude.Value,
+            //                address.Longitude.Value,
+            //                user.Latitude,
+            //                user.Longitude);
+
+            //            if (distance <= user.Radius)
+            //            {
+            //                filtered.Add((vacancy, distance));
+            //            }
+            //        }
+            //    }
+
+            //    var sorted = filtered.OrderBy(f => f.MinDistanceKm).ToList();
+
+            //    _logger.LogInformation($"Found {sorted.Count} vacancies within {user.Radius}km of user {user.Id}'s location");
+
+            //    foreach (var item in sorted)
+            //    {
+            //        var logEntry = new
+            //        {
+            //            VacancyReference = item.Document.Vacancy.VacancyReference,
+            //            Title = item.Document.Vacancy.Title,
+            //            EmployerName = item.Document.Vacancy.EmployerName,
+            //            ClosingDate = item.Document.Vacancy.ClosingDate,
+            //            DistanceKm = Math.Round(item.MinDistanceKm, 2),
+            //            PostedDate = item.Document.Vacancy.PostedDate,
+            //            NumberOfPositions = item.Document.Vacancy.NumberOfPositions,
+            //            ApprenticeshipLevel = item.Document.Vacancy.ApprenticeshipLevel,
+            //            CourseTitle = item.Document.Vacancy.Course?.Title,
+            //            VacancyUrl = item.Document.Vacancy.VacancyUrl,
+            //            AddressLine1 = item.Document.Vacancy.Addresses?.FirstOrDefault()?.AddressLine1,
+            //            AddressLine2 = item.Document.Vacancy.Addresses?.FirstOrDefault()?.AddressLine2,
+            //            AddressLine3 = item.Document.Vacancy.Addresses?.FirstOrDefault()?.AddressLine3,
+            //            AddressLine4 = item.Document.Vacancy.Addresses?.FirstOrDefault()?.AddressLine4,
+            //            Postcode = item.Document.Vacancy.Addresses?.FirstOrDefault()?.Postcode
+            //        };
+
+            //        _logger.LogInformation(
+            //            $"Vacancy: {System.Text.Json.JsonSerializer.Serialize(logEntry)}");
+
+            //        try
+            //        {
+            //            await _whatsAppService.SendVacancyAsync(item.Document.Vacancy, Math.Round(item.MinDistanceKm, 2), user.Mobile);
+            //        }
+            //        catch (Exception ex)
+            //        {
+            //            _logger.LogError(ex, $"Failed to send WhatsApp message for vacancy {item.Document.Vacancy.VacancyReference} to user {user.Id}");
+            //        }
+            //    }
+            //}
         }
         catch (Exception ex)
         {

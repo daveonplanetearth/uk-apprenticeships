@@ -31,6 +31,8 @@ var host = new HostBuilder()
             configuration.GetSection(CosmosDbOptions.SectionName));
         services.Configure<WhatsAppOptions>(
             configuration.GetSection(WhatsAppOptions.SectionName));
+        services.Configure<XApiOptions>(
+            configuration.GetSection(XApiOptions.SectionName));
 
         // Register typed HttpClient for VacancyApiClient
         services.AddHttpClient<IVacancyApiClient, VacancyApiClient>((serviceProvider, client) =>
@@ -52,6 +54,12 @@ var host = new HostBuilder()
             client.BaseAddress = new Uri("https://graph.facebook.com/");
             client.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.AccessToken);
+        });
+
+        // Register typed HttpClient for XApiService
+        services.AddHttpClient<IXApiService, XApiService>((serviceProvider, client) =>
+        {
+            client.BaseAddress = new Uri("https://api.twitter.com/");
         });
 
         // Register CosmosClient as singleton with System.Text.Json serializer

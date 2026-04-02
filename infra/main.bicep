@@ -180,10 +180,6 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
           value: 'recommended'
         }
         {
-          name: 'TimerSchedule'
-          value: '0 0 0 * * *'
-        }
-        {
           name: 'ApprenticeshipApi__BaseUrl'
           value: 'https://api.apprenticeships.education.gov.uk/'
         }
@@ -217,11 +213,11 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
         }
         {
           name: 'ProcessVacanciesFunctionInterval'
-          value: '0 0 * * * *'
+          value: '0 0 8 * * *'
         }
         {
           name: 'VacancySyncFunctionInterval'
-          value: '0 0 * * * *'
+          value: '0 0 7 * * *'
         }
         {
           name: 'WhatsApp__ApiVersion'
