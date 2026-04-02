@@ -1,4 +1,5 @@
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Text.Json.Serialization;
 using UkApprenticeships.Functions.Models;
@@ -12,6 +13,8 @@ public class ProcessVacanciesFunction
     private readonly IUserRepository _userRepository;
     private readonly IWhatsAppService _whatsAppService;
     private readonly IXApiService _xApiService;
+    private readonly IFlux2Service _flux2Service;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<ProcessVacanciesFunction> _logger;
 
     public ProcessVacanciesFunction(
@@ -19,12 +22,16 @@ public class ProcessVacanciesFunction
         IUserRepository userRepository,
         IWhatsAppService whatsAppService,
         IXApiService xApiService,
+        IFlux2Service flux2Service,
+        IConfiguration configuration,
         ILogger<ProcessVacanciesFunction> logger)
     {
         _repository = repository;
         _userRepository = userRepository;
         _whatsAppService = whatsAppService;
         _xApiService = xApiService;
+        _flux2Service = flux2Service;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -45,8 +52,26 @@ public class ProcessVacanciesFunction
 
             _logger.LogInformation($"Retrieved {vacancies.Count} vacancies for partition key {partitionKey}");
 
+            var rateLimitPerMinute = _configuration.GetValue<int>("ProcessVacanciesRateLimitPerMinute");
+
+            var windowStart = DateTime.UtcNow;
+            var processedInWindow = 0;
+
             foreach (var doc in vacancies)
             {
+                if (rateLimitPerMinute > 0 && processedInWindow >= rateLimitPerMinute)
+                {
+                    var windowElapsed = DateTime.UtcNow - windowStart;
+                    var waitTime = TimeSpan.FromMinutes(1) - windowElapsed;
+                    if (waitTime > TimeSpan.Zero)
+                    {
+                        _logger.LogInformation($"Rate limit reached ({rateLimitPerMinute}/min). Waiting {waitTime.TotalSeconds:F1}s.");
+                        await Task.Delay(waitTime);
+                    }
+                    windowStart = DateTime.UtcNow;
+                    processedInWindow = 0;
+                }
+
                 var v = doc.Vacancy;
                 var postcode = v.Addresses?.FirstOrDefault()?.Postcode;
                 var closing = v.ClosingDate.HasValue ? v.ClosingDate.Value.ToString("dd MMM yyyy") : null;
@@ -71,12 +96,15 @@ public class ProcessVacanciesFunction
 
                 try
                 {
-                    await _xApiService.PostTweetAsync(tweetText);
+                    var imageStream = await _flux2Service.GenerateImageAsync(tweetText, width: 610, height: 300);
+                    await _xApiService.PostTweetMediaAsync(tweetText, imageStream);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, $"Failed to post tweet for vacancy {v.VacancyReference}");
                 }
+
+                processedInWindow++;
             }
 
             //var users = await _userRepository.GetAllUsersAsync();

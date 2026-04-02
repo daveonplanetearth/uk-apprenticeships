@@ -33,6 +33,8 @@ var host = new HostBuilder()
             configuration.GetSection(WhatsAppOptions.SectionName));
         services.Configure<XApiOptions>(
             configuration.GetSection(XApiOptions.SectionName));
+        services.Configure<Flux2Options>(
+            configuration.GetSection(Flux2Options.SectionName));
 
         // Register typed HttpClient for VacancyApiClient
         services.AddHttpClient<IVacancyApiClient, VacancyApiClient>((serviceProvider, client) =>
@@ -60,6 +62,13 @@ var host = new HostBuilder()
         services.AddHttpClient<IXApiService, XApiService>((serviceProvider, client) =>
         {
             client.BaseAddress = new Uri("https://api.twitter.com/");
+        });
+
+        // Register typed HttpClient for Flux2Service
+        services.AddHttpClient<IFlux2Service, Flux2Service>((serviceProvider, client) =>
+        {
+            var opts = serviceProvider.GetRequiredService<IOptions<Flux2Options>>().Value;
+            client.BaseAddress = new Uri(opts.BaseUrl);
         });
 
         // Register CosmosClient as singleton with System.Text.Json serializer

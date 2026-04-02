@@ -26,7 +26,7 @@ public class VacancyRepository : IVacancyRepository
 
     public async Task<IReadOnlyList<CosmosVacancyDocument>> GetVacanciesByDateAsync(string partitionKey)
     {
-        var query = new QueryDefinition("SELECT * FROM c WHERE c.partitionKey = @partitionKey")
+        var query = new QueryDefinition("SELECT TOP 20 * FROM c WHERE c.partitionKey = @partitionKey")
             .WithParameter("@partitionKey", partitionKey);
 
         var requestOptions = new QueryRequestOptions
