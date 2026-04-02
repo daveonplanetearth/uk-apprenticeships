@@ -6,6 +6,18 @@ param apprenticeshipApiKey string
 param whatsAppAccessToken string
 param whatsAppPhoneNumberId string = '1068222259699217'
 param whatsAppTemplateName string = 'new_vacancy'
+@secure()
+param xApiConsumerKey string
+@secure()
+param xApiConsumerSecret string
+@secure()
+param xApiAccessToken string
+@secure()
+param xApiAccessTokenSecret string
+param flux2BaseUrl string
+@secure()
+param flux2ApiKey string
+param processVacanciesRateLimitPerMinute int = 20
 
 var uniqueSuffix = uniqueString(resourceGroup().id)
 var storageAccountName = 'st${take(replace(appName, '-', ''), 11)}${take(uniqueSuffix, 11)}'
@@ -234,6 +246,34 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'WhatsApp__TemplateName'
           value: whatsAppTemplateName
+        }
+        {
+          name: 'ProcessVacanciesRateLimitPerMinute'
+          value: string(processVacanciesRateLimitPerMinute)
+        }
+        {
+          name: 'XApi__ConsumerKey'
+          value: xApiConsumerKey
+        }
+        {
+          name: 'XApi__ConsumerSecret'
+          value: xApiConsumerSecret
+        }
+        {
+          name: 'XApi__AccessToken'
+          value: xApiAccessToken
+        }
+        {
+          name: 'XApi__AccessTokenSecret'
+          value: xApiAccessTokenSecret
+        }
+        {
+          name: 'Flux2__BaseUrl'
+          value: flux2BaseUrl
+        }
+        {
+          name: 'Flux2__ApiKey'
+          value: flux2ApiKey
         }
       ]
       ftpsState: 'Disabled'
